@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: outbox-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: outbox
+      POSTGRES_PASSWORD: outbox
+      POSTGRES_DB: outbox
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U outbox -d outbox"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: outbox-app:local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://outbox:outbox@postgres:5432/outbox?sslmode=disable"
+      # Параметры воркера (могут читаться из env в DefaultConfig при желании)
+      OUTBOX_POLL_INTERVAL: "3s"
+      OUTBOX_LEASE: "60s"
+      OUTBOX_HEARTBEAT: "20s"
+      OUTBOX_RETRY_BASE: "5s"
+      OUTBOX_RETRY_MAX: "30m"
+      OUTBOX_CONCURRENCY: "8"
+    # ports:
+    #   - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # Второй инстанс для демонстрации распределённого claim.
+  # Раскомментируй, чтобы проверить, что pipeline не выполняются дважды.
+  # app-2:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   image: outbox-app:local
+  #   restart: unless-stopped
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: "postgres://outbox:outbox@postgres:5432/outbox?sslmode=disable"
+  #     HOSTNAME: "app-2"
+  #   ports:
+  #     - "8081:8080"
+
+volumes:
+  pgdata:

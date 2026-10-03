@@ -12,17 +12,16 @@ import (
 	"syscall"
 	"time"
 
-	outbox "outboxlib"
-
+	"github.com/SinGreedArrived/outboxlib"
 	"github.com/pressly/goose/v3"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 const (
-	SendEmail   outbox.HandlerName = "send-email"
-	NotifySlack outbox.HandlerName = "notify-slack"
-	Flack       outbox.HandlerName = "flaky"
+	SendEmail   outboxlib.HandlerName = "send-email"
+	NotifySlack outboxlib.HandlerName = "notify-slack"
+	Flack       outboxlib.HandlerName = "flaky"
 )
 
 //go:embed migrations/*.sql
@@ -62,8 +61,8 @@ func initDatabaseConnect(ctx context.Context, logger *slog.Logger) (*sql.DB, err
 	return db, nil
 }
 
-func RegistrationHandler(logger *slog.Logger) outbox.HandlerStore {
-	registr := outbox.NewRegistrator()
+func RegistrationHandler(logger *slog.Logger) outboxlib.HandlerStore {
+	registr := outboxlib.NewRegistrator()
 	// example handler request
 	type SendEmailRequest struct {
 		Body string
@@ -108,7 +107,7 @@ func RegistrationHandler(logger *slog.Logger) outbox.HandlerStore {
 
 func StartHttpUserInterface(
 	db *sql.DB,
-	mainOutbox *outbox.Outbox,
+	mainOutbox *outboxlib.Outbox,
 	logger *slog.Logger,
 ) *http.Server {
 	mux := http.NewServeMux()
@@ -133,9 +132,9 @@ func StartHttpUserInterface(
 			return
 		}
 
-		p := outbox.NewPipelineBuilder().
-			Stage(outbox.NewTask(SendEmail).WithPayload(map[string]string{"to": "a@b.c"}).WithMaxAttempts(5)).
-			Stage(outbox.NewTask(NotifySlack)).
+		p := outboxlib.NewPipelineBuilder().
+			Stage(outboxlib.NewTask(SendEmail).WithPayload(map[string]string{"to": "a@b.c"}).WithMaxAttempts(5)).
+			Stage(outboxlib.NewTask(NotifySlack)).
 			Build()
 
 		id, err := mainOutbox.AddPipeline(r.Context(), p)
@@ -176,16 +175,16 @@ func main() {
 		panic(err)
 	}
 
-	cfg := outbox.DefaultConfig()
+	cfg := outboxlib.DefaultConfig()
 	logger.Info("starting", "instance", cfg.InstanceID)
 
 	registr := RegistrationHandler(logger)
-	mainOutbox := outbox.New(
-		outbox.WithConfig(cfg),
-		outbox.WithStore(outbox.NewPostgresStore(db)),
-		outbox.WithLogStore(outbox.NewPostgresTaskLogStore(db)),
-		outbox.WithHandlerStore(registr),
-		outbox.WithLogger(logger),
+	mainOutbox := outboxlib.New(
+		outboxlib.WithConfig(cfg),
+		outboxlib.WithStore(outboxlib.NewPostgresStore(db)),
+		outboxlib.WithLogStore(outboxlib.NewPostgresTaskLogStore(db)),
+		outboxlib.WithHandlerStore(registr),
+		outboxlib.WithLogger(logger),
 	)
 
 	mainOutbox.Start(ctx)
