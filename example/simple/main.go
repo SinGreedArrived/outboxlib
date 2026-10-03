@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	outbox "github.com/SinGreedArrived/outboxlib"
+	outbox "outboxlib"
 
 	"github.com/pressly/goose/v3"
 

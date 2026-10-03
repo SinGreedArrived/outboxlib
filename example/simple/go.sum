@@ -1,5 +1,3 @@
-github.com/SinGreedArrived/outboxlib v0.0.0-20261003113351-12a14bea8e49 h1:+Lnp1pfp9ycWOud7rVuEBf8SroY5o0AL6t37ofQAvow=
-github.com/SinGreedArrived/outboxlib v0.0.0-20261003113351-12a14bea8e49/go.mod h1:dDzgYX5dfJwq2HJ9PJYP9YIxrdVuB4JBssqJZcHrm70=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
