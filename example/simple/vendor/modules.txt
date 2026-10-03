@@ -1,4 +1,4 @@
-# github.com/SinGreedArrived/outboxlib v0.0.3
+# github.com/SinGreedArrived/outboxlib v0.0.4
 ## explicit; go 1.27
 github.com/SinGreedArrived/outboxlib
 # github.com/jackc/pgpassfile v1.0.0

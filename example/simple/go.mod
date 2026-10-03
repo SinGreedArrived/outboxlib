@@ -3,7 +3,7 @@ module simple
 go 1.27.0
 
 require (
-	github.com/SinGreedArrived/outboxlib v0.0.5
+	github.com/SinGreedArrived/outboxlib v0.0.4
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.28.0
 )

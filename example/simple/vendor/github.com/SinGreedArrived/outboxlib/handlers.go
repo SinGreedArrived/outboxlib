@@ -9,23 +9,10 @@ import (
 
 type Handler func(ctx context.Context, v json.RawMessage) (json.RawMessage, error)
 
-type function struct {
-	request  any
-	response any
-	fn       Handler
-}
-
-func newFunc(req any, resp any, fn Handler) function {
-	return function{
-		request:  req,
-		response: resp,
-		fn:       fn,
-	}
-}
 
 type handlersRegistrator struct {
 	mu       sync.RWMutex
-	handlers map[HandlerName]function
+	handlers map[HandlerName]Handler
 }
 
 var def = NewRegistrator()
@@ -43,17 +30,17 @@ func Call(ctx context.Context, name HandlerName, req json.RawMessage) (json.RawM
 
 func NewRegistrator() *handlersRegistrator {
 	return &handlersRegistrator{
-		handlers: make(map[HandlerName]function),
+		handlers: make(map[HandlerName]Handler),
 	}
 }
 
-func (h *handlersRegistrator) register(name HandlerName, req any, resp any, fn Handler) error {
+func (h *handlersRegistrator) register(name HandlerName, fn Handler) error {
 	if _, ok := h.handlers[name]; ok {
 		return fmt.Errorf("handler name busy")
 	}
 
 	h.mu.Lock()
-	h.handlers[name] = newFunc(req, resp, fn)
+	h.handlers[name] = fn
 	h.mu.Unlock()
 
 	return nil
@@ -63,22 +50,16 @@ func (h *handlersRegistrator) Register[T,R any](
 	name HandlerName, 
 	handler func(ctx context.Context, v T)(R,error),
 ) error {
-	var (
-		request T
-		response R
-	)
-
-	return h.register(name, request, response, func(ctx context.Context, v json.RawMessage) (json.RawMessage, error){
+	return h.register(name, func(ctx context.Context, v json.RawMessage) (json.RawMessage, error){
 		var (
 			arg T
-			err error
 		)
 
-		if err = json.Unmarshal(v, &arg); err != nil {
+		if err := json.Unmarshal(v, &arg); err != nil {
 			return nil, fmt.Errorf("json.Unmarshal: %w", err)
 		}
 
-		response, err = handler(ctx, arg)
+		response, err := handler(ctx, arg)
 		if err != nil {
 			return nil, fmt.Errorf("handler: %w", err)
 		}
@@ -97,10 +78,6 @@ func (h *handlersRegistrator) Call(
 	name HandlerName,
 	req json.RawMessage,
 ) (json.RawMessage, error) {
-	var (
-		err error
-	)
-
 	h.mu.RLock()
 	handler, ok := h.handlers[name]
 	h.mu.RUnlock()
@@ -108,7 +85,7 @@ func (h *handlersRegistrator) Call(
 		return nil, fmt.Errorf("handler %q not found", name)
 	}
 
-	respRaw, err := handler.fn(ctx, req)
+	respRaw, err := handler(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("fn: %w", err)
 	}
