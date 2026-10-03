@@ -28,13 +28,7 @@ const (
 //go:embed migrations/*.sql
 var embedMigrations embed.FS
 
-func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
-
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	slog.SetDefault(logger)
-
+func initDatabaseConnect(ctx context.Context, logger *slog.Logger) (*sql.DB, error) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		logger.Error("DATABASE_URL is required")
@@ -64,15 +58,22 @@ func main() {
 		logger.Error("db not ready", "err", err)
 		os.Exit(1)
 	}
+
+	return db, nil
+}
+
+func RegistrationHandler(logger *slog.Logger) outbox.HandlerStore {
 	registr := outbox.NewRegistrator()
-	// Регистрируем хендлеры
+	// example handler request
 	type SendEmailRequest struct {
 		Body string
 	}
+	// example handler response
 	type SendEmailResponse struct {
 		Sent bool
 	}
 
+	// use struct for request body and response
 	registr.Register(
 		SendEmail,
 		func(ctx context.Context, v SendEmailRequest) (SendEmailResponse, error) {
@@ -81,6 +82,8 @@ func main() {
 			return SendEmailResponse{Sent: true}, nil
 		},
 	)
+
+	// use just jsonRaw
 	registr.Register(
 		NotifySlack,
 		func(ctx context.Context, v json.RawMessage) (json.RawMessage, error) {
@@ -88,6 +91,7 @@ func main() {
 			return json.RawMessage(`{"ok":true}`), nil
 		},
 	)
+
 	// Хендлер, который иногда падает — для проверки retry
 	registr.Register(
 		Flack,
@@ -99,21 +103,15 @@ func main() {
 		},
 	)
 
-	cfg := outbox.DefaultConfig()
-	logger.Info("starting", "instance", cfg.InstanceID)
+	return registr
+}
 
-	mainOutbox := outbox.New(
-		outbox.WithConfig(cfg),
-		outbox.WithStore(outbox.NewPostgresStore(db)),
-		outbox.WithLogStore(outbox.NewPostgresTaskLogStore(db)),
-		outbox.WithHandlerStore(registr),
-		outbox.WithLogger(logger),
-	)
-
-	mainOutbox.Start(ctx)
-
+func StartHttpUserInterface(
+	db *sql.DB,
+	mainOutbox *outbox.Outbox,
+	logger *slog.Logger,
+) *http.Server {
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.PingContext(r.Context()); err != nil {
 			http.Error(w, "db down", http.StatusServiceUnavailable)
@@ -162,6 +160,37 @@ func main() {
 			logger.Error("http", "err", err)
 		}
 	}()
+
+	return srv
+}
+
+func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
+
+	db, err := initDatabaseConnect(ctx, logger)
+	if err != nil {
+		panic(err)
+	}
+
+	cfg := outbox.DefaultConfig()
+	logger.Info("starting", "instance", cfg.InstanceID)
+
+	registr := RegistrationHandler(logger)
+	mainOutbox := outbox.New(
+		outbox.WithConfig(cfg),
+		outbox.WithStore(outbox.NewPostgresStore(db)),
+		outbox.WithLogStore(outbox.NewPostgresTaskLogStore(db)),
+		outbox.WithHandlerStore(registr),
+		outbox.WithLogger(logger),
+	)
+
+	mainOutbox.Start(ctx)
+
+	srv := StartHttpUserInterface(db, mainOutbox, logger)
 
 	<-ctx.Done()
 	logger.Info("shutting down")

@@ -1,6 +1,6 @@
 module simple
 
-go 1.27.0
+go 1.27
 
 require (
 	github.com/SinGreedArrived/outboxlib v0.0.0-20261003113351-12a14bea8e49
