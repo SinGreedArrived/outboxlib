@@ -81,7 +81,7 @@ func (w *WorkerPool) claimOnce(ctx context.Context) {
 
 	pipelines, err := w.store.ClaimDue(ctx, w.cfg.InstanceID, w.cfg.LeaseDuration, free)
 	if err != nil {
-		w.logger.Error("claim due", "err", err)
+		w.logger.With("err", err).Error("store claim due")
 		return
 	}
 	for _, p := range pipelines {
@@ -106,7 +106,7 @@ func (w *WorkerPool) heartbeat(ctx context.Context, id uuid.UUID, lost chan<- st
 		case <-ticker.C:
 			ok, err := w.store.Heartbeat(ctx, w.cfg.InstanceID, ids, w.cfg.LeaseDuration)
 			if err != nil {
-				w.logger.Error("heartbeat", "pipeline", id, "err", err)
+				w.logger.With("pipeline_id", id, "err", err).Error("heartbeat")
 				continue
 			}
 			if len(ok) == 0 {
@@ -152,25 +152,25 @@ func (w *WorkerPool) runOne(ctx context.Context, p Pipeline) {
 
 	select {
 	case <-lostLease:
-		w.logger.Warn("lease lost", "pipeline", p.ID)
+		w.logger.With("pipeine_id", p.ID).Warn("lease lost")
 		return
 	default:
 	}
 
 	// Всегда сохраняем прогресс и next_attempt_at
 	if err := w.store.UpdateProgress(ctx, w.cfg.InstanceID, p); err != nil {
-		w.logger.Error("update progress", "pipeline", p.ID, "err", err)
+		w.logger.With("pipeline_id", p.ID, "err", err).Error("store update progress")
 		return
 	}
 
 	switch outcome {
 	case outcomeComplete:
 		if err := w.store.Complete(ctx, w.cfg.InstanceID, p.ID); err != nil {
-			w.logger.Error("complete", "pipeline", p.ID, "err", err)
+			w.logger.With("pipeline_id", p.ID, "err", err).Error("store complete")
 		}
 	case outcomeFailed:
 		if err := w.store.Fail(ctx, w.cfg.InstanceID, p.ID, p.LastError); err != nil {
-			w.logger.Error("fail", "pipeline", p.ID, "err", err)
+			w.logger.With("pipeline_id", p.ID, "err", err).Error("store fail")
 		}
 	case outcomeRetry:
 		if err := w.store.ScheduleRetry(
@@ -180,7 +180,7 @@ func (w *WorkerPool) runOne(ctx context.Context, p Pipeline) {
 			p.NextAttemptAt,
 			p.LastError,
 		); err != nil {
-			w.logger.Error("schedule retry", "pipeline", p.ID, "err", err)
+			w.logger.With("pipeline_id", p.ID, "err", err).Error("store schedule retry")
 		}
 	}
 }

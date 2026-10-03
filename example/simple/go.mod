@@ -2,10 +2,8 @@ module simple
 
 go 1.27.0
 
-replace github.com/SinGreedArrived/outboxlib => ../..
-
 require (
-	github.com/SinGreedArrived/outboxlib v0.0.0-00010101000000-000000000000
+	github.com/SinGreedArrived/outboxlib v0.0.5
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.28.0
 )

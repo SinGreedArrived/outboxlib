@@ -39,7 +39,6 @@ func initDatabaseConnect(ctx context.Context, logger *slog.Logger) (*sql.DB, err
 		logger.Error("db open", "err", err)
 		os.Exit(1)
 	}
-	defer db.Close()
 
 	// ...
 	goose.SetBaseFS(embedMigrations)
@@ -65,20 +64,20 @@ func RegistrationHandler(logger *slog.Logger) outboxlib.HandlerStore {
 	registr := outboxlib.NewRegistrator()
 	// example handler request
 	type SendEmailRequest struct {
-		Body string
+		To string `json:"to"`
 	}
 	// example handler response
 	type SendEmailResponse struct {
-		Sent bool
+		Send bool `json:"ok"`
 	}
 
 	// use struct for request body and response
 	registr.Register(
 		SendEmail,
 		func(ctx context.Context, v SendEmailRequest) (SendEmailResponse, error) {
-			logger.Info("send-email", "payload", v.Body)
+			logger.Info("send-email", "payload", v.To)
 			time.Sleep(2 * time.Second) // имитация работы
-			return SendEmailResponse{Sent: true}, nil
+			return SendEmailResponse{Send: true}, nil
 		},
 	)
 
@@ -86,7 +85,7 @@ func RegistrationHandler(logger *slog.Logger) outboxlib.HandlerStore {
 	registr.Register(
 		NotifySlack,
 		func(ctx context.Context, v json.RawMessage) (json.RawMessage, error) {
-			logger.Info("notify-slack")
+			logger.With("payload", v).Info("notify-slack")
 			return json.RawMessage(`{"ok":true}`), nil
 		},
 	)
@@ -174,6 +173,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer db.Close()
 
 	cfg := outboxlib.DefaultConfig()
 	logger.Info("starting", "instance", cfg.InstanceID)
