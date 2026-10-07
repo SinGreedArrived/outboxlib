@@ -227,10 +227,18 @@ p := outbox.NewPipelineBuilder().
 
 ## Миграции
 
-См. `example/simple/migrations/`
+Библиотека автоматически создаёт необходимые таблицы при первом запуске через `PrepareDatabase()`.
+
+```go
+if err := outboxlib.PrepareDatabase(ctx, db); err != nil {
+    return nil, fmt.Errorf("PrepareDatabase: %w", err)
+}
+```
+
+Или вручную применить миграции из `example/simple/migrations/`:
 
 ```bash
-# Применить миграции
+# Применить миграции (если goose используется отдельно)
 goose -dir example/simple/migrations postgres "$DATABASE_URL" up
 
 # Создать новую миграцию
@@ -240,6 +248,11 @@ goose create add_new_field sql
 ## Примеры
 
 См. `example/simple/main.go` — полный пример приложения с HTTP API для создания pipelines.
+
+### Изменения в последних версиях
+
+- **v2.2.0**: Убран внешний dependency `github.com/pressly/goose/v3`. Миграции теперь встроены в библиотеку через `PrepareDatabase()`.
+- **v2.1.0**: Обновлён пример (`example/simple/main.go`) — удалён `embed.FS` и `goose`, добавлен вызов `PrepareDatabase()`.
 
 ## License
 
