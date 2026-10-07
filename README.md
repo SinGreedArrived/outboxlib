@@ -12,6 +12,7 @@ Go-библиотека для реализации паттерна **Outbox** 
 - **Stale lease recovery**: автоматический перехват задач у упавших подов
 - **Task-level retry**: ретраи на уровне отдельных задач внутри pipeline
 - **Task logging**: полная история всех попыток выполнения
+- **Pipeline filters**: фильтрация pipeline по кастомным метаданным при создании
 
 ## Архитектура
 
@@ -62,6 +63,13 @@ outbox.Start(ctx)
 p := outbox.NewPipelineBuilder().
     Stage(outbox.NewTask("send-email").WithPayload(map[string]string{"to": "user@example.com"})),
     Stage(outbox.NewTask("notify-slack")),
+    Build()
+
+// 5. (опционально) Добавляем фильтры для pipeline
+p := outbox.NewPipelineBuilder().
+    Stage(outbox.NewTask("send-email").WithPayload(map[string]string{"to": "user@example.com"})),
+    Stage(outbox.NewTask("notify-slack")),
+    WithFilters(map[string]string{"env": "production", "priority": "high"}),
     Build()
 
 id, err := outbox.AddPipeline(ctx, p)
@@ -157,6 +165,7 @@ type Config struct {
 | Метод | Описание |
 |-------|----------|
 | `Stage(tasks...)` | Добавить stage с задачами |
+| `WithFilters[T](v)` | Добавить фильтры (метаданные) для pipeline |
 | `Build()` | Создать pipeline |
 
 ### Task Options
@@ -171,6 +180,21 @@ type Config struct {
 | `WithPayload[T](payload)` | Добавление payload(any)|
 | `WithBackoff(p)` | Кастомная политика |
 
+## Фильтры pipeline
+
+Pipeline можно помечать кастомными метаданными (фильтрами) при создании. Фильтры сохраняются в БД как JSONB и могут быть использованы для последующей фильтрации:
+
+```go
+p := outbox.NewPipelineBuilder().
+    Stage(outbox.NewTask("send-email")),
+    WithFilters(map[string]string{
+        "env": "production",
+        "priority": "high",
+        "tenant_id": "abc123",
+    }),
+    Build()
+```
+
 ## Таблицы БД
 
 ### pipelines
@@ -180,6 +204,7 @@ type Config struct {
 | id | UUID | PK |
 | state | TEXT | pending/running/complete/failed |
 | stages | JSONB | Полное дерево задач |
+| filter | JSONB | Фильтры (метаданные) pipeline |
 | next_attempt_at | TIMESTAMPTZ | Когда следующая попытка |
 | last_error | TEXT | Последняя ошибка |
 | locked_by | TEXT | Кто держит lease |
@@ -202,11 +227,11 @@ type Config struct {
 
 ## Миграции
 
-См. `cmd/app/migrations/001_init.sql`
+См. `example/simple/migrations/`
 
 ```bash
 # Применить миграции
-goose -dir cmd/app/migrations postgres "$DATABASE_URL" up
+goose -dir example/simple/migrations postgres "$DATABASE_URL" up
 
 # Создать новую миграцию
 goose create add_new_field sql
@@ -214,7 +239,7 @@ goose create add_new_field sql
 
 ## Примеры
 
-См. `cmd/app/main.go` — полный пример приложения с HTTP API для создания pipelines.
+См. `example/simple/main.go` — полный пример приложения с HTTP API для создания pipelines.
 
 ## License
 
