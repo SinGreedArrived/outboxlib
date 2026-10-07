@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
-	"embed"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/SinGreedArrived/outboxlib"
-	"github.com/pressly/goose/v3"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -23,9 +22,6 @@ const (
 	NotifySlack outboxlib.HandlerName = "notify-slack"
 	Flack       outboxlib.HandlerName = "flaky"
 )
-
-//go:embed migrations/*.sql
-var embedMigrations embed.FS
 
 func initDatabaseConnect(ctx context.Context, logger *slog.Logger) (*sql.DB, error) {
 	dsn := os.Getenv("DATABASE_URL")
@@ -40,21 +36,14 @@ func initDatabaseConnect(ctx context.Context, logger *slog.Logger) (*sql.DB, err
 		os.Exit(1)
 	}
 
-	// ...
-	goose.SetBaseFS(embedMigrations)
-	if err := goose.SetDialect("postgres"); err != nil {
-		logger.Error("goose dialect", "err", err)
-		os.Exit(1)
-	}
-	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
-		logger.Error("goose up", "err", err)
-		os.Exit(1)
-	}
-
 	// Ждём, пока Postgres поднимется (на случай отсутствия healthcheck)
 	if err := waitDB(db, 30*time.Second); err != nil {
 		logger.Error("db not ready", "err", err)
 		os.Exit(1)
+	}
+
+	if err := outboxlib.PrepareDatabase(ctx, db); err != nil {
+		return nil, fmt.Errorf("PrepareDatabase: %w", err)
 	}
 
 	return db, nil
