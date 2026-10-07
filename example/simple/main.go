@@ -132,7 +132,11 @@ func StartHttpUserInterface(
 		}
 
 		p := outboxlib.NewPipelineBuilder().
-			Stage(outboxlib.NewTask(SendEmail).WithPayload(map[string]string{"to": "a@b.c"}).WithMaxAttempts(5)).
+			Stage(
+				outboxlib.NewTask(SendEmail).
+					WithPayload(map[string]string{"to": "a@b.c"}).
+					WithMaxAttempts(5),
+			).
 			Stage(outboxlib.NewTask(NotifySlack)).
 			Build()
 

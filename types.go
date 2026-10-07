@@ -109,6 +109,7 @@ type Pipeline struct {
 	LastError     string
 	LockedBy      string
 	LockedUntil   time.Time
+	Filters       json.RawMessage
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }

@@ -41,7 +41,7 @@ func (s *PostgresStore) Save(ctx context.Context, p Pipeline) error {
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO pipelines (
 			id, state, stages, next_attempt_at, last_error,
-			locked_by, locked_until, created_at, updated_at
+			locked_by, locked_until,filters, created_at, updated_at
 		)
 		VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7)
 	`,
@@ -50,6 +50,7 @@ func (s *PostgresStore) Save(ctx context.Context, p Pipeline) error {
 		stages,
 		p.NextAttemptAt,
 		p.LastError,
+		p.Filters,
 		p.CreatedAt,
 		p.UpdatedAt,
 	)

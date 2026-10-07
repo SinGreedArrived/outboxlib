@@ -105,6 +105,13 @@ func (b *PipelineBuilder) Stage(tasks ...Task) *PipelineBuilder {
 	return b
 }
 
+func (b *PipelineBuilder) Filters[T any](v T) *PipelineBuilder {
+	filterRaw,_ := json.Marshal(v)
+	b.p.Filters = filterRaw
+
+	return b
+}
+
 func (b *PipelineBuilder) Build() Pipeline {
 	p := b.p
 	p.NextAttemptAt = time.Now()
